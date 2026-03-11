@@ -1335,6 +1335,8 @@ export default function App() {
     setActiveScheduleId(s.id);
     setScreen("config");
   };
+
+  const handleBack = () => {
     if (screen === "planDash")    setScreen("companyDash");
     if (screen === "config")      setScreen("mode");
     if (screen === "mode")        setScreen("setup");
