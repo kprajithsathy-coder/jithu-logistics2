@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
    GLOBAL STYLES
 ═══════════════════════════════════════════ */
 const GLOBAL_CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&family=Outfit:wght@300;400;500;600;700&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&family=Outfit:wght@400;600;700;800&display=swap');
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -30,6 +30,7 @@ const GLOBAL_CSS = `
 
   body {
     font-family: 'Outfit', sans-serif;
+    font-weight: 600;
     background: var(--bg);
     color: var(--txt);
     min-height: 100vh;
@@ -254,7 +255,35 @@ const GLOBAL_CSS = `
     padding: 32px 36px;
   }
 
-  @media(max-width:1100px) {
+  /* Delete confirmation modal */
+  .modal-overlay {
+    position:fixed; inset:0; z-index:500;
+    background:rgba(0,0,0,.7); backdrop-filter:blur(4px);
+    display:flex; align-items:center; justify-content:center;
+    animation:fadeIn .2s ease;
+  }
+  .modal-box {
+    background:var(--s1); border:1px solid var(--b2);
+    border-radius:12px; padding:32px; max-width:420px; width:90%;
+    box-shadow:0 32px 80px rgba(0,0,0,.6);
+    animation:fadeUp .25s ease;
+  }
+  .modal-icon { font-size:44px; margin-bottom:16px; }
+  .modal-title { font-family:'Bebas Neue',sans-serif; font-size:26px; letter-spacing:3px; color:var(--red); margin-bottom:10px; }
+  .modal-msg { font-size:13px; color:var(--txtm); line-height:1.7; margin-bottom:8px; }
+  .modal-warn { font-family:'Share Tech Mono',monospace; font-size:11px; color:var(--red); background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.2); border-radius:5px; padding:10px 14px; margin:16px 0 24px; }
+  .modal-btns { display:flex; gap:12px; }
+
+  /* Edit/Delete action buttons on card */
+  .card-actions { display:flex; gap:7px; }
+  .card-act-btn {
+    padding:5px 11px; border-radius:4px; font-family:'Share Tech Mono',monospace;
+    font-size:10px; font-weight:600; letter-spacing:1px; cursor:pointer; border:none; transition:all .2s;
+  }
+  .card-act-edit { background:rgba(59,130,246,.1); border:1px solid rgba(59,130,246,.25) !important; color:var(--acch); }
+  .card-act-edit:hover { background:rgba(59,130,246,.2); }
+  .card-act-del  { background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.2) !important; color:var(--red); }
+  .card-act-del:hover  { background:rgba(239,68,68,.2); }
     .dash-body { grid-template-columns:1fr !important; }
     .kpi-grid  { grid-template-columns:repeat(2,1fr); }
   }
@@ -499,14 +528,61 @@ function ScreenRegister({ onDone, onBack }) {
 }
 
 /* ═══════════════════════════════════════════
-   SCREEN C — COMPANY DASHBOARD
+   DELETE CONFIRMATION MODAL
 ═══════════════════════════════════════════ */
-function ScreenCompanyDash({ company, onNewSchedule, onOpenSchedule, onBack, onDeleteSchedule }) {
+function DeleteModal({ schedule, onConfirm, onCancel }) {
+  return (
+    <div className="modal-overlay" onClick={onCancel}>
+      <div className="modal-box" onClick={e => e.stopPropagation()}>
+        <div className="modal-icon">⚠️</div>
+        <div className="modal-title">DELETE SCHEDULE?</div>
+        <div className="modal-msg">
+          You are about to permanently delete the schedule for:
+        </div>
+        <div style={{ fontWeight:700, fontSize:15, color:"var(--txt)", marginBottom:4 }}>{schedule.product}</div>
+        <div style={{ fontSize:12, color:"var(--txtd)", marginBottom:4 }}>{schedule.supplier}</div>
+        <div style={{ fontSize:12, color:"var(--txtd)" }}>Saved {schedule.savedAt}</div>
+
+        <div className="modal-warn">
+          ⚠ This action cannot be undone. The schedule and all its data will be permanently removed from the dashboard.
+        </div>
+
+        <div className="modal-btns">
+          <button onClick={onCancel}
+            style={{ flex:1, padding:"12px", background:"var(--s2)", border:"1px solid var(--b2)", borderRadius:6,
+              color:"var(--txtm)", fontFamily:"'Share Tech Mono',monospace", fontSize:11, letterSpacing:2, cursor:"pointer" }}>
+            CANCEL
+          </button>
+          <button onClick={onConfirm}
+            style={{ flex:1, padding:"12px", background:"var(--red)", border:"none", borderRadius:6,
+              color:"#fff", fontFamily:"'Share Tech Mono',monospace", fontSize:11, letterSpacing:2, cursor:"pointer",
+              fontWeight:700 }}>
+            YES, DELETE
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function ScreenCompanyDash({ company, onNewSchedule, onOpenSchedule, onBack, onDeleteSchedule, onEditSchedule }) {
   const schedules = company.schedules || [];
   const age = new Date().getFullYear() - parseInt(company.year);
+  const [confirmDelete, setConfirmDelete] = useState(null); // holds schedule to confirm delete
 
   return (
     <div style={{ minHeight:"100vh" }}>
+
+      {/* Delete confirmation modal */}
+      {confirmDelete && (
+        <DeleteModal
+          schedule={confirmDelete}
+          onConfirm={() => { onDeleteSchedule(confirmDelete.id); setConfirmDelete(null); }}
+          onCancel={() => setConfirmDelete(null)}
+        />
+      )}
+
       {/* Topbar */}
       <div className="topbar">
         <div className="topbar-brand">◈ JITHU LOGISTICS</div>
@@ -565,20 +641,24 @@ function ScreenCompanyDash({ company, onNewSchedule, onOpenSchedule, onBack, onD
         ) : (
           <>
             <div className="mono" style={{ fontSize:10, letterSpacing:3, color:"var(--txtd)", marginBottom:18 }}>
-              {schedules.length} SAVED SCHEDULE{schedules.length !== 1 ? "S" : ""} — click to open
+              {schedules.length} SAVED SCHEDULE{schedules.length !== 1 ? "S" : ""} — click card to open
             </div>
             <div className="sched-grid">
               {schedules.map(s => (
                 <div key={s.id} className="sched-card" onClick={() => onOpenSchedule(s)}>
-                  <div style={{ position:"absolute", top:12, right:12 }}>
-                    <div onClick={e => { e.stopPropagation(); onDeleteSchedule(s.id); }}
-                      style={{ width:22, height:22, display:"flex", alignItems:"center", justifyContent:"center",
-                        background:"rgba(239,68,68,.1)", border:"1px solid rgba(239,68,68,.2)",
-                        borderRadius:4, cursor:"pointer", fontSize:11, color:"var(--red)" }}
-                      title="Delete schedule">✕</div>
+
+                  {/* Edit + Delete buttons */}
+                  <div className="card-actions" style={{ position:"absolute", top:12, right:12 }}
+                    onClick={e => e.stopPropagation()}>
+                    <button className="card-act-btn card-act-edit"
+                      onClick={() => onEditSchedule(s)}
+                      title="Edit schedule">✏ EDIT</button>
+                    <button className="card-act-btn card-act-del"
+                      onClick={() => setConfirmDelete(s)}
+                      title="Delete schedule">✕ DEL</button>
                   </div>
 
-                  <div className="sched-card-product">{s.product}</div>
+                  <div className="sched-card-product" style={{ paddingRight:110 }}>{s.product}</div>
                   <div className="sched-card-supplier">{s.supplier}</div>
 
                   <div className="sched-card-stat">
@@ -1025,7 +1105,7 @@ function ChatBot({ planContext }) {
 /* ═══════════════════════════════════════════
    SCREEN G — PLAN DASHBOARD
 ═══════════════════════════════════════════ */
-function ScreenPlanDash({ company, product, supplier, mode, params, plan, onBack, onSaved, isSaved }) {
+function ScreenPlanDash({ company, product, supplier, mode, params, plan, onBack, onSaved, isSaved, onGoToDash }) {
   const { weeks, eoq, costPerCons, lead, safety, opening } = params;
   const totalCost = plan.daysOrdered * costPerCons;
   const avgClose  = Math.round(plan.closing.slice(1).reduce((a,b) => a+b, 0) / weeks);
@@ -1099,6 +1179,10 @@ Answer concisely under 90 words unless detail asked. Flag stockout risks and cos
         </div>
         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
           <button className="btn-sm btn-outline" onClick={onBack}>← BACK</button>
+          <button className="btn-sm btn-outline" onClick={() => onGoToDash()}
+            style={{ borderColor:"rgba(59,130,246,.4)", color:"var(--acch)" }}>
+            🏠 COMPANY DASHBOARD
+          </button>
           <button className="btn-sm" onClick={handleSave}
             style={{
               background: isSaved || saveFlash ? "rgba(16,185,129,.15)" : "rgba(59,130,246,.15)",
@@ -1242,7 +1326,15 @@ export default function App() {
     setActiveScheduleId(schedule.id);
   };
 
-  const handleBack = () => {
+  const handleEditSchedule = (s) => {
+    setProduct(s.product);
+    setSupplier(s.supplier);
+    setMode(s.mode);
+    setParams(s.params);
+    setPlan(s.plan);
+    setActiveScheduleId(s.id);
+    setScreen("config");
+  };
     if (screen === "planDash")    setScreen("companyDash");
     if (screen === "config")      setScreen("mode");
     if (screen === "mode")        setScreen("setup");
@@ -1265,6 +1357,7 @@ export default function App() {
           onNewSchedule={handleNewSchedule}
           onOpenSchedule={handleOpenSchedule}
           onDeleteSchedule={handleDeleteSchedule}
+          onEditSchedule={handleEditSchedule}
           onBack={() => setScreen("landing")}
         />
       )}
@@ -1285,6 +1378,7 @@ export default function App() {
           onBack={handleBack}
           onSaved={handleSaveSchedule}
           isSaved={!!activeScheduleId}
+          onGoToDash={() => setScreen("companyDash")}
         />
       )}
     </>
